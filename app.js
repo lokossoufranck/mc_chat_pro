@@ -13,6 +13,7 @@ const mongoose = require("mongoose");
 const fs = require("fs-extra");
 // import of model
 const Inputmessage = require("./models/Inputmessages");
+const Outputmessages = require("./models/Outputmessages");
 const Users = require("./models/Users");
 const Discussions = require("./models/Discussions");
 const Counters = require("./models/Counters");
@@ -43,6 +44,9 @@ const request = require("request"),
   axios = require("axios").default,
   app = express().use(body_parser.json()); // creates express http server
 const userRoutes = require('./routes/user');
+const inputmessageRoutes = require('./routes/inputmessage');
+const outputmessageRoutes = require('./routes/outputmessage');
+const discussionRoutes=require('./routes/discussion');
 // Sets server port and logs message on success
 
 //app.listen(process.env.PORT || 1337,() => console.log("webhook is listening"));
@@ -362,4 +366,8 @@ app.get("/", async (req, res) => {
 });
 
 app.use('/api/mc_chat', userRoutes);
+app.use('/api/mc_chat', inputmessageRoutes);
+app.use('/api/mc_chat',outputmessageRoutes);
+app.use('/api/mc_chat',discussionRoutes);
+
 server.listen(process.env.PORT || 1337, () => console.log("webhook is listening"));

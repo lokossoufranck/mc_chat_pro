@@ -1,15 +1,16 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Users = require("../models/Users");
-exports.signup =  (req, res, next) => {
+var moment = require('moment'); // require
+//moment().format('yyyy/mm/dd');
+exports.signup = (req, res, next) => {
+
+
   bcrypt.hash(req.body.password, 10)
     .then(async (hash) => {
-      console.log(hash);
       let user = req.body;
-      console.log(user);
-      if (!user) {
-        res.status(400).send({ error: true, message: 'Please provide user' });
-      }
+      var errors = {}
+      var message = {}
 
       var usr = new Users({
         'id': 0,
@@ -21,70 +22,151 @@ exports.signup =  (req, res, next) => {
         'is_on_line': false,
         'created_at': new Date()
       });
-      await usr.save().then((d) => {
-        console.log('new user is added', d);
-        res.status(200).json({ error: false, d, message: 'New user has been created successfully.' });
-      }).catch((error) => {
-        console.log(error);
-      });
+
+      if (usr.email == undefined) {
+        // errors.email = 'Please provide email'
+        return res.status(400).json({ error: true, message: 'Please provide email' });
+      }
+      if (usr.firstname == undefined) {
+        //errors.firstname = 'Please provide firstname'
+        return res.status(400).json({ error: true, message: 'Please provide firstname' });
+      }
+      if (usr.password == undefined) {
+        return res.status(400).json({ error: true, message: 'Please provide password' });
+      }
+
+      await Users.findOne({ username: usr.username })
+        .then(user => {
+          return user;
+        }).then(async (user) => {
+
+          if (user == null) {// The user not exist in database           
+            await usr.save().then((d) => {
+              return res.status(200).json({ error: false, d, message: 'New user has been created successfully.' });
+            }).catch((error) => {
+              return res.status(200).json({ error: true, message: error });
+            });
+
+          } else {
+            return res.status(200).json({ error: false, user, message: 'The user already exists in the database' });
+          }
+        })
+        .catch(error => { console.log(error) })
 
     }).catch(error => res.status(500).json({ error }));
 
+
 }
-/*
+
+
+exports.signin = (req, res, next) => {
+  let username = req.body.username;
+  let password = req.body.password;
+
+  if (!username) {
+    return res.status(400).json({ error: true, message: 'Entrer votre username' });
+  }
+  if (!password) {
+    return res.status(400).json({ error: true, message: 'Entrer votre password' });
+  }
+
+  Users.findOne({ username: username }).then((user) => {
+    return user;
+  }).then((user) => {
+    if (user != null) {
+      bcrypt.compare(password, user.password).then((valid) => {
+        if (!valid) {
+          return res.status(401).json({ error: true, message: 'Mot de passe incorrect !' });
+        } else {
+          let token = jwt.sign(
+            {
+              userId: user._id
+            },
+            'RANDOM_TOKEN_SECRET_MCB',
+            { expiresIn: '24h' }
+          )
+          user.is_on_line = 1
+          user.lastdate_connexion = moment(new Date()).format("YYYY-MM-DD hh:mm:ss");
+          user.save();
+          return res.status(401).json({ error: false, user, token, message: 'Connected user' });
+        }
+      }).catch(error => {
+        return res.status(401).json({ error: true, message: error });
+      })
+
+    } else {
+      return res.status(401).json({ error: true, message: 'This username not exist' });
+    }
+
+  })
+
+
+}
+
+
+
+
+
 exports.logout = (req, res, next) => {
-  let user_id = req.body.id;
+  let user_id = req.body._id;
   if (!user_id) {
     return res.status(400).json({ error: true, message: 'Please provide user_id' });
   }
+  Users.findOne({ _id: user_id }).then((user) => {
+    if (user != null) {
+      user.is_on_line = 0
+      user.save();
+      res.status(200).json({ error: false, user, message: 'User has been updated successfully.' });
+    } else {
+      res.status(401).json({ error: true, user, message: 'No user has not been found' });
+    }
 
-  let = whereClause = { id: user_id };
-  dbconf.mysqlCon.query(`UPDATE users SET is_on_line=0 ,updated_at=now() WHERE ? `, [whereClause], function (error, results, fields) {
-    if (error) throw error;
-    res.status(200).json({ error: false, results, message: 'New user has been created successfully.' });
-  });
-
+  })
 }
-
-
-
 
 
 //Update user
 exports.updateUser = (req, res, next) => {
-  if(req.body.password){
-    let hash = bcrypt.hashSync(req.body.password, 10);
-    req.body.password = hash;
-  }
-  
-  
-  let user = req.body;
   let user_id = req.params.id;
 
+
   if (!user_id) {
-    return res.status(400).json({ error: true, message: 'Please provide user_id' });
+    return res.status(400).json({ error: true, message: "Entrer votre l'id" });
   }
-  if (!user) {
-    res.status(400).send({ error: true, message: 'Please provide user' });
-  }
-  
-  let = whereClause = { id: user_id };
-  dbconf.mysqlCon.query(`UPDATE users SET ? where ?`, [user, whereClause], function (error, results, fields) {
-    if (error) throw error;
-    res.status(200).json({ error: false, results, message: 'resultat true' });
-    
-  });
+
+
+  Users.findOne({ _id: user_id }).then((user) => {
+    return user;
+  }).then((user) => {
+    if (user != null) {
+      user.is_on_line = req.body?.is_on_line ? req.body.is_on_line : user.is_on_line
+      user.firstname = req.body?.firstname ? req.body.firstname : user.firstname
+      user.email = req.body?.email ? req.body.email : user.email
+      user.name = req.body?.name ? req.body.name : user.name
+      if (req.body?.password != undefined) { // cheking if password is defined
+        bcrypt.hash(req.body.password, 10)
+          .then(async (hash) => {
+            user.password = hash
+            user.save()
+          })
+      }else
+      user.save()
+      return res.status(401).json({ error: false, user, message: 'Connected user' });
+    } else {
+      return res.status(401).json({ error: true, message: 'This username not exist' });
+    }
+  })
 
 }
+
 
 exports.getAllUsers = (req, res, next) => {
-  dbconf.mysqlCon.query('SELECT * FROM users', function (error, results, fields) {
-    if (error) throw error;
-    res.status(200).json(results);
-  });
+  Users.find().then((users) => {
+    return res.status(401).json({ error: false, users, message: 'Connected user' });
+  })
 }
 
-
+/*
 exports.getUsersBy = (req, res, next) => {
   let user_id = req.body.user_id;
   if (!user_id) {
@@ -135,54 +217,6 @@ exports.finUser = (req, res) => {
 }
 
 
-exports.signin = (req, res, next) => {
-  let username = req.body.username;
-  if (!username) {
-    return res.status(400).json({ error: true, message: 'Entrer votre username' });
-  }
-  dbconf.mysqlCon.query('SELECT * FROM users where username=?', username, function (error, results, fields) {
-
-    if (error) throw error;
-
-    if (results[0]) {
-      user = results[0];
-      // console.log(user);
-      bcrypt.compare(req.body.password, user.password)
-        .then(valid => {
-          if (!valid) {
-            return res.status(401).json({ error: true, message: 'Mot de passe incorrect !' });
-          }
-
-          dbconf.mysqlCon.query('UPDATE users set is_on_line=1 where id=?', user.id, function (error, results, fields) {
-            if (error) throw error;
-            res.status(200).json(results[0]);
-          });
-
-
-          return res.status(200).json({
-            userId: user.id,
-            username: user.username,
-            firstname: user.firstname,
-            type_id: user.type_id,
-            token: jwt.sign(
-              {
-                userId: user.id
-              },
-              'RANDOM_TOKEN_SECRET_MCB',
-              { expiresIn: '24h' }
-            )
-
-
-
-          });
-        }).catch(error => res.status(500).json({ error }));
-    } else {
-      return res.status(401).json({ error: true, message: 'incorrect username !' });
-    }
-
-  });
-
-}
 
 exports.getFirstUserOnline = (req, res, next) => {
   // Retourne la première personne en ligne
@@ -192,3 +226,14 @@ exports.getFirstUserOnline = (req, res, next) => {
   });
 }
 */
+
+
+
+
+exports.getFirstUserOnline = (req, res, next) => {
+   Users.findOne({is_on_line:0}).sort({created_at:-1}).then((users) => {
+    return res.status(200).json({ error: false, users, message: 'Connected user' });
+  }).catch(error=>{
+    return res.status(401).json({ error: false,message: error });
+  })
+}

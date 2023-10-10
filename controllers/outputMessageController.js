@@ -1,33 +1,125 @@
 const dbconf = require('../dbconf');
-const bcrypt = require('bcrypt');
+const Outputmessages = require("../models/Outputmessages");
+const mongoose = require('mongoose');
+const Discussion = require('../models/Discussions');
+const { ObjectId } = require('mongodb');
+
+
 
 // Create outputmessage 
-exports.createOutputMessage = (req, res, next) => {
-  let outputMsg = req.body;
-  if (!outputMsg) {
+exports.createOutputMessage = async (req, res, next) => {
+
+  let msg = req.body;
+  if (!msg) {
     res.status(400).send({ error: true, message: 'Please provide outputmessage' });
   }
 
-  dbconf.mysqlCon.query(`INSERT INTO outputmessages
-  (body,type,filename,mimetype,length,has_media, wp_number_sender, 
-  wp_number_receiver, discussion_id, user_id,is_read, created_at) 
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,now())`,
-    [
-      `${outputMsg.body}`,
-      `${outputMsg.type}`,
-      `${outputMsg.filename}`,
-      `${outputMsg.mimetype}`,
-      `${outputMsg.length}`,
-      `${outputMsg.has_media}`,
-      `${outputMsg.wp_number_sender}`,
-      `${outputMsg.wp_number_receiver}`,
-      `${outputMsg.discussion_id}`,
-      `${outputMsg.user_id}`,
-      `${outputMsg.is_read}`
-    ], function (error, results, fields) {
-      if (error) throw error;
-      res.status(200).json({ error: false, results, message: 'New outputmessage has been created successfully.' });
+  if (!msg.body || msg.body == "" || msg.body == undefined) {
+    res.status(400).send({ error: true, message: 'Please provide body field' });
+  }
+
+  if (!msg.user_id || msg.user_id == "" || msg.user_id == undefined) {
+    res.status(400).send({ error: true, message: 'Please provide user_id field' });
+  }
+
+  /*if (!msg.discussion_id || msg.discussion_id == "" || msg.discussion_id == undefined) {
+    res.status(400).send({ error: true, message: 'Please provide discussion_id field' });
+  }*/
+
+  if (!msg.wp_number_sender || msg.wp_number_sender == "" || msg.wp_number_sender == undefined) {
+    res.status(400).send({ error: true, message: 'Please provide wp_number_sender field' });
+  }
+
+  if (!msg.wp_number_receiver || msg.wp_number_receiver == "" || msg.wp_number_receiver == undefined) {
+    res.status(400).send({ error: true, message: 'Please provide wp_number_receiver field' });
+  }
+  // ENVOIE DU MESSAGE //
+  const axios = require('axios');
+  let data = JSON.stringify({
+    "messaging_product": "whatsapp",
+    "preview_url": false,
+    "recipient_type": "individual",
+    "to": msg.wp_number_receiver,
+    "type": "text",
+    "text": {
+      "body": msg.body
+    }
+  });
+
+  const token ='EAB78Hn4B4xUBO0TjEOHKor1NLov4uW6ysfZBn1kkpZATTg8B0rk3u0Bgo5P1ekQdhYHFiTDeg0slXpqz7PanBW3ZCOxRZA5QZBhZAE4FZArm4uSM3GmE7WD45LqWgOFRvJ3r0onuyPQH3WLaUZAKTVMJ6Eer0uGLZAazz7KUcMPwymDQmMWnh4fbZBcTfwfYZCZATsIIPMZCtL9OnUyEZACGnrAZAOhpGdgZANX9';
+ 
+
+  
+
+  let config = {
+    method: 'post',
+    maxBodyLength: Infinity,
+    url: 'https://graph.facebook.com/v17.0/107557182266835/messages',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer '+token
+    },
+    data: data
+  };
+
+  await axios.request(config)
+    .then((response) => {
+      return (JSON.stringify(response.data));
+    }).then((data) => {
+
+
+
+      msg.discussion_id = new ObjectId(msg.discussion_id);
+      msg.user_id = new ObjectId(msg.user_id);
+      var Msg = new Outputmessages({
+        body: msg.body,
+        user_id: msg.user_id,
+        discussion_id: msg.discussion_id,
+        wp_number_sender: msg.wp_number_sender,
+        wp_number_receiver: msg.wp_number_receiver
+      });
+
+
+      Msg.save().then(msg => {
+        return res.status(200).json({ error: false, Msg, message: 'New outputmessage has been created successfully.' });
+      }).catch((error) => {
+        return res.status(401).json({ error: true, message: error })
+      });
+
+    })
+    .catch((error) => {
+      console.log(error);
     });
+
+
+  /**/
+
+  /*
+    let outMsg = req.body;
+    if (!outMsg) {
+      res.status(400).send({ error: true, message: 'Please provide outputmessage' });
+    }
+    if (req.body.user_id) {
+      const _id = new mongoose.mongo.ObjectId(req.body.user_id);
+      req.body.user_id = _id;
+    }
+    if (req.body.discussion_id) {
+      req.body.discussion_id = new mongoose.mongo.ObjectId(req.body.discussion_id);;
+    }
+  
+   */
+  //FIN ENVOIE DU MESSAGE//
+
+
+
+
+
+
+
+
+
+
+
 
 }
 
@@ -82,14 +174,14 @@ exports.getFirstOutputMessageOnline = (req, res, next) => {
 
 
 
-exports.getOutputMessagesByUser= (req, res,next)=> {
+exports.getOutputMessagesByUser = (req, res, next) => {
   // Retourne le message précedent
-let user_id = req.body.user_id;
+  let user_id = req.body.user_id;
   if (!user_id) {
     res.status(400).send({ error: true, message: 'Please provide outputmessage' });
   }
- dbconf.mysqlCon.query('SELECT *, 0 as col FROM outputmessages where user_id=? ORDER BY id DESC',user_id, function (error, results, fields) {
-      if (error) throw error;
-      res.status(200).json( results);
+  dbconf.mysqlCon.query('SELECT *, 0 as col FROM outputmessages where user_id=? ORDER BY id DESC', user_id, function (error, results, fields) {
+    if (error) throw error;
+    res.status(200).json(results);
   });
 }

@@ -1,5 +1,5 @@
 const mongoose =require('mongoose');
-var InputMessageShema=mongoose.Schema({
+var OutputMessageShema=mongoose.Schema({
     id:{type:Number,require:false},
     body:{type:String,required:false},
     type:{type:String,required:false},
@@ -12,9 +12,9 @@ var InputMessageShema=mongoose.Schema({
     wp_number_receiver:{type:String,required:false},
     discussion_id:{type: mongoose.Schema.Types.ObjectId, ref: 'Discussions'},
     user_id:{type:mongoose.Schema.Types.ObjectId, ref: 'users'},
-    is_read:{type:String,required:false},  
+    is_read:{type:String,required:false},
     created_at:{type:Date,default: Date.now,required:false},
     updated_at:{type:String,required:false},
 });
 
-module.exports=mongoose.model('Inputmessages',InputMessageShema);
+module.exports=mongoose.model('Outputmessages',OutputMessageShema);
